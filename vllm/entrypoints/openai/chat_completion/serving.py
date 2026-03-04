@@ -710,6 +710,9 @@ class OpenAIServingChat(OpenAIServing):
             stream_options, self.enable_force_include_usage
         )
 
+        # whether TTFT has been sent to the client
+        sent_ttft = False
+
         try:
             async for res in result_generator:
                 if res.prompt_token_ids is not None:
@@ -739,6 +742,9 @@ class OpenAIServingChat(OpenAIServing):
                             finish_reason=None,
                         )
 
+                        ttft_value = res.metrics.first_token_latency \
+                            if (res.metrics and res.metrics.first_latency > 0) else None
+
                         # return prompt_token_ids at the first chunk ever
                         chunk = ChatCompletionStreamResponse(
                             id=request_id,
@@ -752,6 +758,10 @@ class OpenAIServingChat(OpenAIServing):
                                 else None
                             ),
                         )
+
+                        if ttft_value is not None:
+                            chunk.x_ttft_seconds = ttft_value
+                            sent_ttft = True
 
                         # if continuous usage stats are requested, add it
                         if include_continuous_usage:
@@ -1318,6 +1328,11 @@ class OpenAIServingChat(OpenAIServing):
                         choices=[choice_data],
                         model=model_name,
                     )
+
+                    # if not yet sent TTFT because of chunked prefill
+                    if (not sent_ttft and res.metrics and res.metrics.first_token_latency > 0):
+                        chunk.x_ttft_seconds = res.metrics.first_token_latency
+                        sent_ttft = True
 
                     # handle usage stats if requested & if continuous
                     if include_continuous_usage:

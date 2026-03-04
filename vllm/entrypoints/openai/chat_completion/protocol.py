@@ -131,6 +131,7 @@ class ChatCompletionStreamResponse(OpenAIBaseModel):
     usage: UsageInfo | None = Field(default=None)
     # not part of the OpenAI spec but for tracing the tokens
     prompt_token_ids: list[int] | None = None
+    x_ttft_seconds : float | None = None
 
 
 class ChatCompletionToolsParam(OpenAIBaseModel):
